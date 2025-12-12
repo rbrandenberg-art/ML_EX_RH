@@ -1,0 +1,36 @@
+# ---------------------------------------------
+# 1. IGNORAR DATOS (Archivos grandes .parquet, .csv)
+# Esto es CRUCIAL para evitar el error "remote end hung up unexpectedly"
+# Al incluir la extensión, ignoras TODOS los archivos de datos de ese tipo.
+*.parquet
+*.csv
+*.zip
+*.pkl
+*.jobli
+
+# Opcional: Si tienes una carpeta de datos
+# data/
+
+# ---------------------------------------------
+# 2. IGNORAR ARCHIVOS GENERADOS (Python/Jupyter)
+
+# Ignorar directorios de paquetes compilados
+__pycache__/
+
+# Ignorar entornos virtuales (si usaste "venv" o "env")
+venv/
+env/
+
+# Ignorar archivos generados por Jupyter (puntos de control)
+.ipynb_checkpoints/
+
+# Ignorar archivos de registro del IDE (Visual Studio Code, etc.)
+.vscode/
+
+# Ignorar el dataset final fusionado
+df_merged_initial.parquet
+artifacts/df_entrenamiento_final.parquet
+artifacts/df_prueba_processed.parquet
+
+# Ignorar la carpeta de datos fuente
+datos_examen/
