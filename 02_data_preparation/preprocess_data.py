@@ -13,156 +13,161 @@ from sklearn.model_selection import train_test_split
 import joblib
 import matplotlib.pyplot as plt
 import warnings
+warnings.filterwarnings(action='ignore', category=UserWarning, module='sklearn')
 
 #Cargar el DataFrame final fusionado (salida de la fase 01)
-df_final = pd.read_parquet("df_merged_initial.parquet")
+df_final_merged = pd.read_parquet("df_merged_initial.parquet")
 
-# Definir la variable objetivo (Y) y las características (X)
-# TARGET es la variable de incumplimiento (0 o 1)
-X = df_final.drop(columns=['TARGET', 'SK_ID_CURR']) # Excluir TARGET y el ID del cliente
-Y = df_final['TARGET']
-SK_ID_CURR = df_final['SK_ID_CURR'] # Guardar IDs por separado si es necesario para el merge final
+X = df_final_merged.drop(columns=['TARGET', 'SK_ID_CURR']) 
+Y = df_final_merged['TARGET']
+
+# Aplicar One-Hot Encoding (OHE) a las categóricas tipo 'object'
+categorical_cols_object = X.select_dtypes(include='object').columns.tolist()
+print(f"Features categóricas originales a codificar: {categorical_cols_object}")
+
+# Aplicar OHE a X completo (temporalmente)
+X_ohe = pd.get_dummies(X, columns=categorical_cols_object, dummy_na=False)
+print(f"Dimensionalidad después de OHE: {X_ohe.shape}")
+
 # Realizar la división (80% entrenamiento, 20% prueba)
-# stratify=Y es crucial para mantener la proporción de la clase minoritaria (incumplimiento)
-# en ambos conjuntos, ya que el dataset está desbalanceado.
 X_train, X_test, Y_train, Y_test = train_test_split(
-    X, Y, 
+    X_ohe, Y, 
     test_size=0.2, 
     random_state=42, 
     stratify=Y
 )
-# Crear el DataFrame de TRABAJO (solo entrenamiento)
-# Ahora trabajaremos exclusivamente con X_train. Volvemos a juntar TARGET solo por conveniencia 
-# para el análisis no supervisado (K-Means/IF), pero solo debe ser usado el X_train en el modelado.
+
+# Realineación (Asegura que X_train y X_test tengan las MISMAS columnas)
+# Esto resuelve el error: NAME_FAMILY_STATUS_Unknown (si aparece solo en test)
+train_cols = X_train.columns
+X_test = X_test.reindex(columns=train_cols, fill_value=0)
+
+# Definir el DataFrame de trabajo de entrenamiento y las referencias
 df_entrenamiento = X_train.copy()
 df_entrenamiento['TARGET'] = Y_train
 
-print("División train/test realizada. El preprocesamiento se realizará solo en el conjunto de entrenamiento.")
-print(f"Dimensiones del Conjunto de Entrenamiento: {df_entrenamiento.shape}")
+# Lista de los nombres de TODAS las columnas (originales + OHE)
+NUMERIC_COLUMNS_REF = X_train.columns 
 
-#PCA Preparacion -------------------------------------------------------------------------------------------------------
-# Excluir IDs y TARGET
-df_pca = df_final.drop(columns=['SK_ID_CURR', 'TARGET'], errors='ignore')
+print("✅ División train/test y One-Hot Encoding completados.")
+# ==========================================================
+# El set de entrenamiento listo para Imputación/Escalado/PCA
+X_train_imput = X_train # DataFrame completo de entrenamiento (OHE + Numéricas)
+X_test_imput = X_test # DataFrame completo de prueba (OHE + Numéricas)
 
-# Seleccionar solo variables numéricas (ya que la mayoría de categóricas fueron convertidas en el merge)
-df_pca_numeric = df_entrenamiento.drop(columns=['SK_ID_CURR', 'TARGET'], errors='ignore')
-df_train_numeric = df_pca_numeric.select_dtypes(include=np.number)
-print(f"DataFrame de ENTRENAMIENTO para PCA: {df_train_numeric.shape}")
 
-# Reemplazar NaN con la media
+# --- IMPUTACIÓN ---
 imputer = SimpleImputer(strategy='mean')
-
-# Ajustar y transformar (fit_transform) el DataFrame
-df_imputed_train_array = imputer.fit_transform(df_train_numeric)
-
+X_train_imputed_array = imputer.fit_transform(X_train_imput)
 joblib.dump(imputer, 'artifacts/imputer_fitted.pkl')
 
-# Volver a convertir a DataFrame para el siguiente paso (PCA)
-df_pca_imputed = pd.DataFrame(df_imputed_train_array, columns=df_train_numeric.columns)
-print("Valores faltantes imputados (Media aprendida solo del entrenamiento).")
+# Convertir a DataFrame después de imputar (Input para Scaler)
+X_train_imputed = pd.DataFrame(X_train_imputed_array, columns=train_cols, index=X_train.index)
+print(f"✅ Imputación de NaNs completada. {X_train_imputed.shape[1]} columnas imputadas.")
 
-# Escalar los datos imputados
+
+# --- ESCALAMIENTO ---
 scaler = StandardScaler()
-df_scaled_train_array = scaler.fit_transform(df_pca_imputed)
-
+X_train_scaled_array = scaler.fit_transform(X_train_imputed)
 joblib.dump(scaler, 'artifacts/scaler_fitted.pkl')
 
-# Volver a convertir a DataFrame
-df_pca_scaled = pd.DataFrame(df_scaled_train_array, columns=df_pca_imputed.columns)
-print("Datos escalados (μ y σ aprendidas solo del entrenamiento).")
-print(f"DataFrame listo para PCA: {df_pca_scaled.shape}")
+# Convertir la salida del Scaler a DataFrame (Input para PCA)
+X_train_scaled = pd.DataFrame(X_train_scaled_array, columns=NUMERIC_COLUMNS_REF, index=X_train.index)
+print("✅ Escalado completado.")
 
 
-# Aplicar PCA sin límite de componentes para capturar la varianza total
-X_train_pca_ready = df_pca_scaled.values 
-feature_names = df_pca_scaled.columns
+# --- PCA Y REDUCCIÓN DE DIMENSIÓN ---
+# X_train_pca_ready es el DataFrame escalado (X_train_scaled)
 
 pca = PCA()
-pca.fit(X_train_pca_ready)
+pca.fit(X_train_scaled) # Ajustar PCA CON nombres (resuelve UserWarning 2)
 
-# Calcular la varianza acumulada
+# Cálculo de la varianza acumulada
 cumulative_variance = np.cumsum(pca.explained_variance_ratio_)
-
-# Encontrar el número de componentes que explican el 90% de la varianza
 n_components_90 = np.argmax(cumulative_variance >= 0.90) + 1
 
-# Transformar los datos al número óptimo de componentes
 pca_final = PCA(n_components=n_components_90)
-pca_final.fit(X_train_pca_ready)
-
-df_pca_train_array = pca_final.transform(X_train_pca_ready)
-
-# Volver a convertir a DataFrame con nombres de componentes
-pca_cols = [f'PC_{i+1}' for i in range(n_components_90)]
-df_pca_final = pd.DataFrame(df_pca_train_array, index=df_pca_scaled.index, columns=pca_cols)
-
+pca_final.fit(X_train_scaled) # Ajustar PCA final CON nombres
 joblib.dump(pca_final, 'artifacts/pca_fitted.pkl')
 
-print("\n--- Resultados del Análisis de PCA ---")
-print(f"Se necesitan {n_components_90} componentes (de las {df_pca_numeric.shape[1]} iniciales) para explicar el 90% de la varianza total de los datos.")
-print(f"DataFrame reducido (df_pca_final) tiene: {df_pca_final.shape} columnas.")
-
-# --- Transformar el Conjunto de Prueba (X_test) ---
-
-# 1. Aplicar imputación y escalado aprendidos al X_test
-X_test_imputed_array = imputer.transform(X_test.select_dtypes(include=np.number))
-X_test_scaled_array = scaler.transform(X_test_imputed_array)
-
-# 2. Aplicar la transformación PCA aprendida al X_test
-df_pca_test_array = pca_final.transform(X_test_scaled_array)
-
-# Crear DataFrame de prueba final (también necesario para la evaluación final)
-df_pca_test_final = pd.DataFrame(df_pca_test_array, columns=pca_cols)
-
-# Guardar el conjunto de prueba transformado (Artifact)
-df_pca_test_final.to_parquet("artifacts/df_prueba_processed.parquet", index=False)
+# Transformar entrenamiento
+pca_cols = [f'PC_{i+1}' for i in range(n_components_90)]
+df_pca_final = pd.DataFrame(pca_final.transform(X_train_scaled), columns=pca_cols, index=X_train.index)
+print(f"✅ PCA completado. Dimensionalidad reducida a {n_components_90} componentes.")
 
 
-# --- APLICACIÓN DE K-MEANS (K=5) -----------------------------------------------------------
+# --- TRANSFORMAR EL CONJUNTO DE PRUEBA (Flujo Completo) ---
+# Aplicar SOLO transform() de cada artifact ajustado.
 
-# X para K-Means es el conjunto de entrenamiento reducido por PCA
-X_pca_train = df_pca_final.values
-K_optimo = 5 # Usamos el K validado en la fase de análisis
+# Imputar (salida array)
+X_test_imputed_array = imputer.transform(X_test)
 
-# Ajustar y predecir SOLO en el entrenamiento
+# Convertir a DataFrame (para mantener nombres)
+X_test_imputed_df = pd.DataFrame(X_test_imputed_array, columns=NUMERIC_COLUMNS_REF, index=X_test.index)
+
+# Escalar (salida array)
+X_test_scaled_array = scaler.transform(X_test_imputed_df) 
+
+# Convertir a DataFrame (para PCA)
+X_test_scaled = pd.DataFrame(X_test_scaled_array, columns=NUMERIC_COLUMNS_REF, index=X_test.index)
+
+# Transformar PCA (salida array)
+df_pca_test_array = pca_final.transform(X_test_scaled)
+
+# Crear DataFrame de prueba final
+df_pca_test_final = pd.DataFrame(df_pca_test_array, columns=pca_cols, index=X_test.index)
+# ==========================================================
+# --- K-MEANS (Asignar Cluster) ---
+K_optimo = 5 
 final_kmeans = KMeans(n_clusters=K_optimo, random_state=42, n_init=10)
-cluster_labels = final_kmeans.fit_predict(X_pca_train)
 
-# --- Guardar el modelo K-Means ajustado (ARTIFACT) ---
+# Ajustar y predecir en Entrenamiento (df_pca_final)
+train_cluster_labels = final_kmeans.fit_predict(df_pca_final) 
+# Predecir en Prueba (usando el modelo ajustado)
+test_cluster_labels = final_kmeans.predict(df_pca_test_final) 
+
 joblib.dump(final_kmeans, 'artifacts/kmeans_model.pkl')
-print(f"✅ Modelo K-Means (K={K_optimo}) guardado en /artifacts.")
+print("✅ Modelo K-Means guardado.")
 
-# --- APLICACIÓN DE ISOLATION FOREST ---------------------------------------------------------
 
+# --- ISOLATION FOREST (Asignar Anomalía) ---
 contamination_rate = 0.01
 
-# Ajustar y predecir SOLO en el entrenamiento
 if_model = IsolationForest(
-    n_estimators=100,
-    contamination=contamination_rate,
-    random_state=42,
+    n_estimators=100, 
+    contamination=contamination_rate, 
+    random_state=42, 
     n_jobs=-1
 )
-outlier_labels = if_model.fit_predict(X_pca_train)
 
-# --- Guardar el modelo Isolation Forest ajustado (ARTIFACT) ---
+# Ajustar y predecir en Entrenamiento (df_pca_final)
+train_outlier_labels = if_model.fit_predict(df_pca_final) 
+# Predecir en Prueba (usando el modelo ajustado)
+test_outlier_labels = if_model.predict(df_pca_test_final) 
+
 joblib.dump(if_model, 'artifacts/isolation_forest_model.pkl')
-print("✅ Modelo Isolation Forest guardado en /artifacts.")
+print("✅ Modelo Isolation Forest guardado.")
 
 
-# --- CREACIÓN DE FEATURES E INTEGRACIÓN AL DATASET DE ENTRENAMIENTO ---
+# --- CREAR DATASETS FINALES PARA MODELADO ---
 
-# Las nuevas etiquetas se añaden al DataFrame de ENTRENAMIENTO original, 
-# ya que comparten el mismo índice y orden.
-df_entrenamiento['KMEANS_CLUSTER'] = cluster_labels
-df_entrenamiento['ISOLATION_OUTLIER'] = outlier_labels
+# Añadir las etiquetas a los conjuntos transformados por PCA
+df_pca_final['KMEANS_CLUSTER'] = train_cluster_labels
+df_pca_final['ISOLATION_OUTLIER'] = train_outlier_labels
 
-# El DataFrame de Entrenamiento ahora tiene todas las features, incluidas las no supervisadas.
-print("✅ Features KMEANS_CLUSTER e ISOLATION_OUTLIER creadas en df_entrenamiento.")
+df_pca_test_final['KMEANS_CLUSTER'] = test_cluster_labels
+df_pca_test_final['ISOLATION_OUTLIER'] = test_outlier_labels
 
 
-# --- GUARDAR EL DATASET FINAL DE ENTRENAMIENTO PARA MODELADO ---
+# --- GUARDAR DATASETS FINALES (CON PCA + CLUSTERS) ---
 
-# Este es el dataset que la fase /03_modeling utilizará para entrenar el LightGBM/XGBoost.
-df_entrenamiento.to_parquet("artifacts/df_entrenamiento_final.parquet", index=True) 
-print("✅ Dataset de entrenamiento FINAL (con todas las features) guardado en /artifacts.")
+# Entrenamiento: Incluye X_train y Y_train (añadir Y_train de vuelta)
+df_pca_final['TARGET'] = Y_train
+df_pca_final.to_parquet("artifacts/df_entrenamiento_final.parquet", index=True) 
+
+# Prueba: Incluye X_test y Y_test
+df_pca_test_final['TARGET'] = Y_test
+df_pca_test_final.to_parquet("artifacts/df_prueba_final.parquet", index=True)
+
+print("✅ Scripts de Preprocesamiento completados. Listo para la Fase 03.")
+# ==========================================================
