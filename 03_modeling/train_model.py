@@ -91,9 +91,9 @@ skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=42)
 print("\nIniciando entrenamiento final del modelo LightGBM...")
 
 final_lgbm = model.fit(
-    X, 
+    X,
     Y,
-    categorical_feature=categorical_features
+    categorical_feature=[]
 )
 
 print("✅ Entrenamiento del modelo campeón (LightGBM) completado.")

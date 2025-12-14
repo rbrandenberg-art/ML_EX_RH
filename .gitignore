@@ -7,6 +7,7 @@
 *.zip
 *.pkl
 *.jobli
+*.png
 
 # Opcional: Si tienes una carpeta de datos
 # data/
@@ -34,3 +35,4 @@ artifacts/df_prueba_processed.parquet
 
 # Ignorar la carpeta de datos fuente
 datos_examen/
+plots/
