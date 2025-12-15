@@ -40,6 +40,9 @@ X_train, X_test, Y_train, Y_test = train_test_split(
 # Realineación (Asegura que X_train y X_test tengan las MISMAS columnas)
 # Esto resuelve el error: NAME_FAMILY_STATUS_Unknown (si aparece solo en test)
 train_cols = X_train.columns
+joblib.dump(train_cols, 'artifacts/ohe_input_features_ref.pkl')
+names = joblib.load('artifacts/ohe_input_features_ref.pkl')
+print(names[-5:])
 X_test = X_test.reindex(columns=train_cols, fill_value=0)
 
 # Definir el DataFrame de trabajo de entrenamiento y las referencias
@@ -57,17 +60,33 @@ X_test_imput = X_test # DataFrame completo de prueba (OHE + Numéricas)
 
 
 # --- IMPUTACIÓN ---
+
 imputer = SimpleImputer(strategy='mean')
+try:
+    # Anula la validación de features de Pandas para la API
+    imputer = imputer.set_output(transform="default") 
+except:
+    pass 
+
 X_train_imputed_array = imputer.fit_transform(X_train_imput)
 joblib.dump(imputer, 'artifacts/imputer_fitted.pkl')
 
 # Convertir a DataFrame después de imputar (Input para Scaler)
-X_train_imputed = pd.DataFrame(X_train_imputed_array, columns=train_cols, index=X_train.index)
+# Esto asegura que el Scaler reciba la variable esperada y mantenga los nombres de columna.
+X_train_imputed = pd.DataFrame(
+    X_train_imputed_array, 
+    columns=train_cols, 
+    index=X_train.index
+)
 print(f"✅ Imputación de NaNs completada. {X_train_imputed.shape[1]} columnas imputadas.")
-
 
 # --- ESCALAMIENTO ---
 scaler = StandardScaler()
+try:
+    scaler = scaler.set_output(transform="default")
+except:
+    pass
+
 X_train_scaled_array = scaler.fit_transform(X_train_imputed)
 joblib.dump(scaler, 'artifacts/scaler_fitted.pkl')
 
