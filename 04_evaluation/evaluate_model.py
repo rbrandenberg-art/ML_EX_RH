@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import joblib
-from sklearn.metrics import roc_auc_score, roc_curve, auc
+from sklearn.metrics import roc_auc_score, roc_curve, auc, precision_recall_curve
 import matplotlib.pyplot as plt
 import os
 import warnings
@@ -125,6 +125,30 @@ def plot_roc_curve(Y_test, Y_pred_proba, roc_auc, path):
     plt.close()
     print(f"✅ Curva ROC guardada en: {path}curva_roc.png")
 
+# --- Generación de Curva Precision-Recall ---
+def plot_precision_recall_curve(Y_test, Y_pred_proba, path):
+    # La función precision_recall_curve ya fue importada al inicio.
+    precision, recall, thresholds = precision_recall_curve(Y_test, Y_pred_proba)
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(recall, precision, marker='.', linestyle='-', color='darkgreen')
+    
+    # La línea base para la P-R Curve es la proporción de positivos
+    proportion_positives = Y_test.sum() / len(Y_test)
+    plt.axhline(y=proportion_positives, color='r', linestyle='--', label=f'Línea Base (Ratio Positivos: {proportion_positives:.2f})')
+    
+    plt.xlabel('Recall (Sensibilidad o Tasa de Verdaderos Positivos)')
+    plt.ylabel('Precision (Valor Predictivo Positivo)')
+    plt.title('Curva Precision-Recall para la Clase de Default (TARGET=1)')
+    plt.legend(loc="lower left")
+    plt.grid(True)
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+
+    plt.savefig(path + 'curva_precision_recall.png')
+    plt.close()
+    print(f"✅ Curva Precision-Recall guardada en: {path}curva_precision_recall.png")
+
 plot_roc_curve(Y_test, Y_pred_proba, roc_auc, PLOTS_PATH)
 
 # --- Generación de Curva de Ganancia (Lift Chart) ---
@@ -163,6 +187,13 @@ def plot_lift_chart(Y_test, Y_pred_proba, path):
     plt.close()
     print(f"✅ Curva de Ganancia guardada en: {path}curva_ganancia.png")
 
-plot_lift_chart(Y_test, Y_pred_proba, PLOTS_PATH)
+plot_roc_curve(Y_test, Y_pred_proba, roc_auc, PLOTS_PATH)
+
+# AÑADIR LA LLAMADA AQUÍ:
+plot_precision_recall_curve(Y_test, Y_pred_proba, PLOTS_PATH)
+
+# --- Generación de Curva de Ganancia (Lift Chart) ---
+def plot_lift_chart(Y_test, Y_pred_proba, path):
+    plot_lift_chart(Y_test, Y_pred_proba, PLOTS_PATH)
 
 print("\n--- Evaluación Finalizada ---")

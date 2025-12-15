@@ -10,6 +10,9 @@ import lightgbm as lgb
 import joblib
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_auc_score
+import matplotlib.pyplot as plt
+import os
+# ---
 
 
 # --- CONFIGURACIÓN DE RUTAS ---
@@ -98,8 +101,34 @@ final_lgbm = model.fit(
 
 print("✅ Entrenamiento del modelo campeón (LightGBM) completado.")
 
+# Obtener la importancia de las features
+feature_importance = pd.DataFrame({
+    'feature': X.columns,  # Usamos X.columns porque el orden es el mismo que X.values
+    'importance': final_lgbm.feature_importances_
+}).sort_values(by='importance', ascending=False)
 
-# --- 6. GUARDAR EL MODELO CAMPEÓN ---
+# Seleccionar las top N features (ej. las 20 más importantes)
+N_TOP = 20
+top_features = feature_importance.head(N_TOP)
+
+# Guardar el gráfico
+PLOTS_DIR = "plots"
+os.makedirs(PLOTS_DIR, exist_ok=True) 
+
+plt.figure(figsize=(10, 8))
+plt.barh(top_features['feature'], top_features['importance'])
+plt.xlabel('Importancia de la Feature (F-score)')
+plt.ylabel('Feature')
+plt.title(f'Top {N_TOP} Features más Importantes del Modelo LightGBM')
+plt.gca().invert_yaxis() # Pone la feature más importante arriba
+
+plt.savefig(os.path.join(PLOTS_DIR, 'lgbm_feature_importance.png'))
+plt.close()
+
+print(f"✅ Gráfica de Importancia de Features guardada en {os.path.join(PLOTS_DIR, 'lgbm_feature_importance.png')}")
+
+
+# --- GUARDAR EL MODELO CAMPEÓN ---
 
 MODEL_PATH = ARTIFACTS_PATH + 'final_model.pkl'
 

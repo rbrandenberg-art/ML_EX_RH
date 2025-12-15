@@ -10,6 +10,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.metrics import silhouette_score
 from scipy.cluster.hierarchy import dendrogram, linkage
 from sklearn.model_selection import train_test_split
+import os
 import joblib
 import matplotlib.pyplot as plt
 import warnings
@@ -187,7 +188,12 @@ plt.xlabel('Número de Componentes Principales')
 plt.ylabel('Varianza Acumulada Explicada')
 plt.legend()
 plt.grid(True)
-plt.show()
+PLOTS_DIR = "plots"
+os.makedirs(PLOTS_DIR, exist_ok=True) # Crea la carpeta si no existe
+
+plt.savefig(os.path.join(PLOTS_DIR, 'pca_cumulative_variance.png'))
+plt.close() # Cierra la figura para liberar memoria
+print(f"✅ Gráfica de Varianza Acumulada guardada en {os.path.join(PLOTS_DIR, 'pca_cumulative_variance.png')}")
 
 # --- 4. SALIDA PARA LA FASE 02 ---
 

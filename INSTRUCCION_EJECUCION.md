@@ -24,5 +24,5 @@ pip install pandas numpy scikit-learn pyarrow matplot joblib lightgbm fastapi uv
 Asegurarse de que los archivos .parquet estén ubicados en la carpeta raiz.
 Asegurarse de que la consola este ubicada en la carpeta raiz antes de iniciar comandos y ejecuciones.
 Ejecución: Ejecutar los archivos .py en orden secuencial(del 01 al 05). 
-Ejecutar la API: -cd 05_deployment 
-Dentro de la carpeta ejecutar: -uvicorn app:app --reload
+Ejecutar la API: - cd 05_deployment 
+Dentro de la carpeta ejecutar: - uvicorn app:app --reload, - python -m uvicorn app:app --reload

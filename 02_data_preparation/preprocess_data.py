@@ -10,6 +10,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.metrics import silhouette_score
 from scipy.cluster.hierarchy import dendrogram, linkage
 from sklearn.model_selection import train_test_split
+import os
 import joblib
 import matplotlib.pyplot as plt
 import warnings
@@ -187,6 +188,43 @@ df_pca_final.to_parquet("artifacts/df_entrenamiento_final.parquet", index=True)
 # Prueba: Incluye X_test y Y_test
 df_pca_test_final['TARGET'] = Y_test
 df_pca_test_final.to_parquet("artifacts/df_prueba_final.parquet", index=True)
+
+PLOTS_DIR = "plots"
+os.makedirs(PLOTS_DIR, exist_ok=True) # Crear la carpeta 'plots'
+
+# Usaremos el DataFrame df_pca_final que ya contiene PC_1, PC_2 y KMEANS_CLUSTER
+if df_pca_final.shape[1] >= 2:
+
+    # Limitar el número de puntos para que la gráfica no sea demasiado lenta o densa
+    df_sample = df_pca_final.sample(n=min(5000, len(df_pca_final)), random_state=42)
+    
+    # Mapear las etiquetas de cluster a colores
+    scatter = plt.figure(figsize=(10, 8))
+    
+    # Graficar PC_1 vs PC_2, coloreado por KMEANS_CLUSTER
+    plt.scatter(
+        df_sample['PC_1'], 
+        df_sample['PC_2'], 
+        c=df_sample['KMEANS_CLUSTER'], 
+        cmap='viridis', 
+        marker='.', 
+        alpha=0.6
+    )
+    
+    plt.title('Visualización de Clusters K-Means en los Componentes Principales (PC_1 vs PC_2)')
+    plt.xlabel('Componente Principal 1 (PC_1)(Nivel general de endeudamiento o ingresos de clientes)')
+    plt.ylabel('Componente Principal 2 (PC_2)(Estabilidad laboral o antiguedad de la deuda)')
+    
+    # Añadir leyenda de colores
+    cbar = plt.colorbar(label='Etiqueta de Cluster (K-Means)')
+    
+    # Guardar la gráfica
+    plt.savefig(os.path.join(PLOTS_DIR, 'clustering_pca_visualization.png'))
+    plt.close()
+    
+    print(f"✅ Gráfica de Clusters K-Means (PCA) guardada en {os.path.join(PLOTS_DIR, 'clustering_pca_visualization.png')}")
+else:
+    print("Advertencia: No hay suficientes componentes principales (PC) para graficar PC_1 vs PC_2.")
 
 print("✅ Scripts de Preprocesamiento completados. Listo para la Fase 03.")
 # ==========================================================
