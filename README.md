@@ -144,3 +144,10 @@ Fase 04: Evaluación del Rendimiento
             Poder Predictivo: El modelo es significativamente mejor que la Línea Base en todos los niveles de Recall. Esto se debe a que la curva verde se encuentra muy por encima de la línea roja.
             Región de Alta Precisión (Bajo Recall):Cerca del origen (donde Recall es cercano a 0.0): La Precisión comienza muy alta, cerca del 1.0 (aunque cae rápidamente). Esto significa que el modelo es extremadamente preciso para identificar a los clientes de más alto riesgo (el 1% o 2% de la población), asegurando que casi todos los que clasifica como de muy alto riesgo realmente harán default.
             El modelo tiene un excelente poder predictivo para la clase de riesgo, superando ampliamente la línea base.
+
+Fase 05  Interpretación de la Respuesta Final (/score)
+    probability_default: Valor continuo entre 0 y 1 generado por el modelo. La probabilidad matemática de que este cliente no pague su deuda.
+    score_percent: Conversión a formato porcentual. Facilita la lectura rápida para analistas de crédito.
+    decision: Resultado binario basado en el THRESHOLD = 0.10. 
+        Aprobado: El riesgo es menor al 10%.
+        Rechazado: El riesgo supera el límite tolerado por la institución.

@@ -1,5 +1,3 @@
-# /05_deployment/app.py (Código Final Corregido)
-
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import joblib
@@ -8,7 +6,7 @@ import numpy as np
 import os
 from typing import List
 
-# --- 1. CONFIGURACIÓN Y DECLARACIÓN DE VARIABLES GLOBALES ---
+# --- CONFIGURACIÓN Y DECLARACIÓN DE VARIABLES GLOBALES ---
 
 # Usar ruta absoluta para robustez, asumiendo que el script se ejecuta desde /05_deployment
 ARTIFACTS_PATH = os.path.join(os.path.dirname(__file__), '..', 'artifacts')
@@ -63,7 +61,7 @@ app = FastAPI(
 )
 
 
-# --- 2. DEFINICIÓN DEL ESQUEMA DE DATOS (Pydantic) ---
+# --- DEFINICIÓN DEL ESQUEMA DE DATOS (Pydantic) ---
 
 # CRÍTICO: Debes reemplazar este esquema con TODAS las features originales 
 # numéricas y categóricas que usaste como entrada a la FASE 02.
@@ -79,7 +77,7 @@ class ClientFeatures(BaseModel):
     FLAG_OWN_REALTY: str = Field('Y', description="Dueño de propiedad ('Y', 'N').")
 
 
-# --- 3. FUNCIÓN DE PREPROCESAMIENTO COMPLETO ---
+# --- FUNCIÓN DE PREPROCESAMIENTO COMPLETO ---
 
 def full_preprocessing(df_raw: pd.DataFrame) -> np.ndarray:
     """
@@ -90,7 +88,7 @@ def full_preprocessing(df_raw: pd.DataFrame) -> np.ndarray:
     if OHE_FEATURE_NAMES is None:
         raise RuntimeError("No se cargó la lista de nombres de features OHE.")
     
-    # --- 1. One-Hot Encoding (OHE) y Alineación ---
+    # --- One-Hot Encoding (OHE) y Alineación ---
     
     # Aplicar OHE solo a las columnas categóricas que definiste globalmente
     df_cat = df_raw[CATEGORICAL_COLS]
@@ -124,18 +122,18 @@ def full_preprocessing(df_raw: pd.DataFrame) -> np.ndarray:
     # Convertir a array NumPy para DESACTIVAR la validación de nombres de Scikit-learn
     X_aligned_array = X_aligned.values
     
-    # --- 2. Imputación y Escalado (Transformación) ---
+    # --- Imputación y Escalado (Transformación) ---
     X_imputed_array = IMPUTER.transform(X_aligned_array)
     X_scaled_array = SCALER.transform(X_imputed_array)
     
-    # --- 3. PCA (Reducción de Dimensionalidad) ---
+    # --- PCA (Reducción de Dimensionalidad) ---
     X_pca_array = PCA.transform(X_scaled_array)
     N_components = PCA.n_components_
     pca_cols = [f'PC_{i+1}' for i in range(N_components)]
 
     X_pca_df = pd.DataFrame(X_pca_array, columns=pca_cols, index=df_raw.index)
     
-    # --- 4. Clustering y Anomalía (Generación de Features Finales) ---
+    # --- Clustering y Anomalía (Generación de Features Finales) ---
     
     # La predicción del K-Means e IForest requiere el vector de PCs
     X_pca_df['KMEANS_CLUSTER'] = KMEANS.predict(X_pca_df)
@@ -149,7 +147,7 @@ def full_preprocessing(df_raw: pd.DataFrame) -> np.ndarray:
 
     return X_final
 
-# --- 4. ENDPOINT DE PREDICCIÓN ---
+# --- ENDPOINT DE PREDICCIÓN ---
 
 @app.get("/")
 def home():
