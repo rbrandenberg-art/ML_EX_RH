@@ -99,7 +99,7 @@ Fase 02: Preprocesamiento y Reducción de Dimensión
         -1 (Outlier): El cliente se comporta de manera significativamente diferente a la mayoría del grupo.
         1 (Inlier): El cliente se ajusta a los patrones normales del dataset. Esta feature es altamente predictiva de riesgo.
     Graficos: 
-        El grafico pca_cumulative_variance muestra:
+        El grafico clustering_pca_visualization muestra:
         PC_1: eje X mayor cantidad de varianza(Informacion util)
         PC_2: eje Y segunda mayor cantidad de varianza
         Puntos de dispercion: clientes individuales
